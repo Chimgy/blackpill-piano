@@ -12,6 +12,9 @@ LDFLAGS += -nostartfiles
 clean:
 	rm -f blink.elf blink.bin *.o
 
+%.bin: %.elf
+    arm-none-eabi-objcopy -O binary $< $@	
+
 include $(LIBOPENCM3)/mk/genlink-config.mk
 include $(LIBOPENCM3)/mk/gcc-config.mk
 include $(LIBOPENCM3)/mk/genlink-rules.mk
