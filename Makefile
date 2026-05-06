@@ -9,6 +9,9 @@ OPENCM3_DIR = $(LIBOPENCM3)
 
 LDFLAGS += -nostartfiles
 
+clean:
+	rm -f blink.elf blink.bin *.o
+
 include $(LIBOPENCM3)/mk/genlink-config.mk
 include $(LIBOPENCM3)/mk/gcc-config.mk
 include $(LIBOPENCM3)/mk/genlink-rules.mk

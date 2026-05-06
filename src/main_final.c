@@ -38,46 +38,61 @@ static const int16_t sine_table[256] = {
     -6393, -5602, -4808, -4011, -3212, -2410, -1608, -804
 };
 
+
 int main(void) {
     rcc_clock_setup_pll(&rcc_hse_25mhz_3v3[RCC_CLOCK_3V3_96MHZ]);
 
+    /* PLLI2S is set up in the following clock pipeline 
+       Crystal clock = 25Mhz -> M=25, N=192, R=2 -> 96 MHz clean for audio*/
     RCC_PLLI2SCFGR = (2 << 28) | (192 << 6) | 25;
     RCC_CR |= RCC_CR_PLLI2SON;
     while (!(RCC_CR & RCC_CR_PLLI2SRDY));
+
+    /* Apply PLLI2S AS I2s Clock source */
     RCC_CFGR &= ~(1 << 23);
 
     rcc_periph_clock_enable(RCC_GPIOB);
     rcc_periph_clock_enable(RCC_GPIOC);
     rcc_periph_clock_enable(RCC_SPI2);
 
-    gpio_mode_setup(GPIOC, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, GPIO13);
-    gpio_mode_setup(GPIOB, GPIO_MODE_AF, GPIO_PUPD_NONE,
-                    GPIO12 | GPIO10 | GPIO15);
-    gpio_set_af(GPIOB, GPIO_AF5, GPIO12 | GPIO10 | GPIO15);
+    /* LED */
+    gpio_mode_setup(GPIOB, GPIO_MODE_AF, GPIO_PUPD_NONE, GPIO13);
+    /* I2S Pins */
+    gpio_mode_setup(GPIOB, GPIO_MODE_AF, GPIO_PUPD_NONE, 
+                    GPIO12 | GPIO13 | GPIO15);
+    gpio_set_af(GPIOB, GPIO_AF5, GPIO12 | GPIO13 | GPIO15);
 
     SPI2_I2SCFGR = 0;
     SPI2_I2SPR   = 0;
     SPI2_I2SPR   = (31 << 0) | (0 << 8);
     SPI2_I2SCFGR = SPI_I2SCFGR_I2SMOD |
-                   (SPI_I2SCFGR_I2SCFG_MASTER_TRANSMIT << SPI_I2SCFGR_I2SCFG_LSB) |
-                   SPI_I2SCFGR_I2SSTD_I2S_PHILIPS |
-                   SPI_I2SCFGR_DATLEN_16BIT |
-                   SPI_I2SCFGR_I2SE;
+                (SPI_I2SCFGR_I2SCFG_MASTER_TRANSMIT << SPI_I2SCFGR_I2SCFG_LSB) |
+                SPI_I2SCFGR_I2SSTD_I2S_PHILIPS |
+                SPI_I2SCFGR_DATLEN_16BIT |
+                SPI_I2SCFGR_I2SE;
+    
+    /* Blink 3 times on boot 
+       for (int i = 0; i < 6; i++) {
+        gpio_toggle(GPIOC, GPIO13);
+        for (uint32_t d = 0; d < 500000; d++) __asm__("nop");
+    }
+    */
+ 
 
+    /* Keep writing to force the peripheral to clock */
     uint8_t idx = 0;
     uint32_t counter = 0;
     while (1) {
-        /* Wait for TX buffer empty before writing */
-        while (!(SPI2_SR & SPI_SR_TXE));
         SPI2_DR = (uint16_t)sine_table[idx];
-        while (!(SPI2_SR & SPI_SR_TXE));
         SPI2_DR = (uint16_t)sine_table[idx];
         idx++;
 
-        counter++;
-        if (counter >= 1000) {
+        counter++; 
+        if (counter >= 10000) {
             gpio_toggle(GPIOC, GPIO13);
             counter = 0;
         }
     }
+
+    return 0;
 }
